@@ -7,7 +7,9 @@
 package proxy
 
 import (
+	"flag"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"plugin"
@@ -15,18 +17,26 @@ import (
 )
 
 type Config struct {
+	// 服务监听地址,如0.0.0.0：8128
 	ListenAddr string
 
+	// 原地址，如 www.baidu.com:80
 	DestAddr string
 
+	// 请求内容dump输出的文件地址
 	RequestDumpPath string
-	requestFile     *os.File
 
+	RequestDumpWriter io.WriteCloser
+
+	// 响应内容dump输出的文件地址
 	ResponseDumpPath string
-	responseFile     *os.File
 
+	ResponseDUmpWriter io.WriteCloser
+
+	// 请求和响应解码 .so 的文件地址
 	DecoderPluginPath string
-	newDecoderFunc    NewDecoderFunc
+
+	NewDecoderFunc NewDecoderFunc
 }
 
 func (c *Config) Parser() error {
@@ -51,33 +61,33 @@ func (c *Config) Parser() error {
 func (c *Config) loadDumpFiles() error {
 	{
 		name := c.RequestDumpPath
-		if name == "" || name == "-" {
-			// pass
-		} else if name == "stdout" {
-			c.requestFile = os.Stdout
+		if name == "" {
+			// pass 不输出
+		} else if name == "-" {
+			c.RequestDumpWriter = os.Stdout
 		} else {
 			f, err := os.OpenFile(name, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
 				return err
 			}
-			c.requestFile = f
+			c.RequestDumpWriter = f
 		}
 	}
 
 	{
 		name := c.ResponseDumpPath
-		if name == "" || name == "-" {
-			// pass
+		if name == "" {
+			// pass  不输出
 		} else if name == c.RequestDumpPath {
-			c.responseFile = c.requestFile
-		} else if name == "stdout" {
-			c.responseFile = os.Stdout
+			c.ResponseDUmpWriter = c.RequestDumpWriter
+		} else if name == "-" {
+			c.ResponseDUmpWriter = os.Stdout
 		} else {
 			f, err := os.OpenFile(name, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
 				return err
 			}
-			c.responseFile = f
+			c.ResponseDUmpWriter = f
 		}
 	}
 	return nil
@@ -115,18 +125,25 @@ func (c *Config) loadDecoder() error {
 	if !ok {
 		return fmt.Errorf("func NewDecoderFunc's type [%T] not func(net.conn)Deocder", v)
 	}
-	c.newDecoderFunc = newDecoder(rv)
+	c.NewDecoderFunc = newDecoder(rv)
 	return nil
 }
 
-func (c *Config) RequestDumpFile() *os.File {
-	return c.requestFile
-}
+func NewConfigByFlag() *Config {
+	var config = &Config{}
+	flag.StringVar(&config.ListenAddr, "l", "0.0.0.0:8128", "proxy listen addr")
+	flag.StringVar(&config.DestAddr, "dest", "", `remote dest server addr (eg "10.10.1.8:80")`)
+	flag.StringVar(&config.RequestDumpPath, "req", "-", "dump request to")
+	flag.StringVar(&config.ResponseDumpPath, "resp", "-", "dump response to")
+	flag.StringVar(&config.DecoderPluginPath, "decoder", "~/proxydump/decoder.so", "decoder plugin so file path")
 
-func (c *Config) ResponseDumpFile() *os.File {
-	return c.responseFile
-}
-
-func (c *Config) NewDecoderFunc() NewDecoderFunc {
-	return c.newDecoderFunc
+	flag.Usage = func() {
+		out := flag.CommandLine.Output()
+		cmd := os.Args[0]
+		fmt.Fprintf(out, "usage: %s [flags] [path ...]\n", cmd)
+		flag.PrintDefaults()
+		fmt.Fprintf(out, "https://github.com/fsgo/proxydump\n")
+		fmt.Fprintf(out, "version: %s\n", Version)
+	}
+	return config
 }

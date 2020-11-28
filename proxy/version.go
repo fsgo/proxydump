@@ -6,4 +6,4 @@
 
 package proxy
 
-const Version = "20201107.001"
+const Version = "20201128.002"

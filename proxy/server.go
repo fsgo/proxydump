@@ -16,7 +16,8 @@ import (
 type Server struct {
 	DestAddr string
 
-	OnNewConn   func(conn net.Conn) net.Conn
+	OnNewConn func(conn net.Conn) net.Conn
+
 	OnConnClose func(conn net.Conn)
 
 	RequestDumpWriter io.WriteCloser
