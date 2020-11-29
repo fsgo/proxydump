@@ -72,13 +72,17 @@ func (s *Server) handler(inConn net.Conn) {
 
 	var wOut io.Writer = outConn
 	if s.RequestDumpWriter != nil {
-		wOut = io.MultiWriter(outConn, NewDecoderWriter(s.RequestDumpWriter, decoder.Request))
+		w1 := NewDecoderWriter(s.RequestDumpWriter, decoder.Request)
+		defer w1.Close()
+		wOut = io.MultiWriter(outConn, w1)
 	}
 	go copy(wOut, inConn)
 
 	var wIn io.Writer = inConn
 	if s.ResponseDumpWriter != nil {
-		wIn = io.MultiWriter(inConn, NewDecoderWriter(s.ResponseDumpWriter, decoder.Response))
+		w2 := NewDecoderWriter(s.ResponseDumpWriter, decoder.Response)
+		defer w2.Close()
+		wIn = io.MultiWriter(inConn, w2)
 	}
 	go copy(wIn, outConn)
 	<-errc

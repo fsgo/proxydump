@@ -18,12 +18,10 @@ type NewDecoderFunc func(conn net.Conn) Decoder
 // Decoder 数据解码器
 type Decoder interface {
 	// 解析请求数据
-	Request(p []byte) []byte
+	Request(in io.Reader, out io.Writer)
 
 	// 解析response
-	Response(p []byte) []byte
-
-	Close() error
+	Response(in io.Reader, out io.Writer)
 }
 
 func NewNopDecoderFunc(_ net.Conn) Decoder {
@@ -35,16 +33,12 @@ var _ Decoder = (*NopDecoder)(nil)
 type NopDecoder struct {
 }
 
-func (n NopDecoder) Request(p []byte) []byte {
-	return p
+func (n NopDecoder) Request(in io.Reader, out io.Writer) {
+	io.Copy(out, in)
 }
 
-func (n NopDecoder) Response(p []byte) []byte {
-	return p
-}
-
-func (n NopDecoder) Close() error {
-	return nil
+func (n NopDecoder) Response(in io.Reader, out io.Writer) {
+	io.Copy(out, in)
 }
 
 func newDecoder(rv reflect.Value) NewDecoderFunc {
@@ -61,25 +55,26 @@ func newDecoder(rv reflect.Value) NewDecoderFunc {
 	}
 }
 
-func NewDecoderWriter(w io.Writer, decoder func([]byte) []byte) io.Writer {
-	return &writer{
-		raw:         w,
-		decoderFunc: decoder,
-	}
+func NewDecoderWriter(out io.Writer, decoder func(in io.Reader, out io.Writer)) io.WriteCloser {
+	w := &writer{}
+	w.r, w.w = io.Pipe()
+	go decoder(w.r, out)
+	return w
 }
 
 var _ io.Writer = (*writer)(nil)
 
 type writer struct {
-	raw         io.Writer
-	decoderFunc func([]byte) []byte
+	r *io.PipeReader
+	w *io.PipeWriter
 }
 
-func (w writer) Write(p []byte) (n int, err error) {
-	p1 := w.decoderFunc(p)
-	m, err := w.raw.Write(p1)
-	if err != nil {
-		return m, err
-	}
-	return len(p), nil
+func (w *writer) Write(p []byte) (n int, err error) {
+	return w.w.Write(p)
+}
+
+func (w *writer) Close() error {
+	w.r.CloseWithError(io.EOF)
+	w.w.CloseWithError(io.EOF)
+	return nil
 }

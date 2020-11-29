@@ -9,7 +9,7 @@
 package main
 
 import (
-	"bytes"
+	"io"
 	"log"
 	"net"
 	"sync/atomic"
@@ -23,16 +23,14 @@ func (d *Decoder) ID() uint64 {
 	return atomic.AddUint64(&d.id, 1)
 }
 
-func (d *Decoder) Request(p []byte) []byte {
-	var buf bytes.Buffer
-	buf.Write(p)
-	return buf.Bytes()
+func (d *Decoder) Request(in io.Reader, out io.Writer) {
+	out.Write([]byte("decoder.so Request\n"))
+	io.Copy(out, in)
 }
 
-func (d *Decoder) Response(p []byte) []byte {
-	var buf bytes.Buffer
-	buf.Write(p)
-	return buf.Bytes()
+func (d *Decoder) Response(in io.Reader, out io.Writer) {
+	out.Write([]byte("decoder.so Response\n"))
+	io.Copy(out, in)
 }
 
 func (d *Decoder) Close() error {
