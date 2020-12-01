@@ -70,3 +70,14 @@ Set-Cookie: BDORZ=27315; max-age=86400; domain=.baidu.com; path=/
 
 // 更多内容略...
 ```
+
+### 4. IP验证
+使用`-auth`参数指定验证token，若IP未验证请求将被拒绝：
+```
+proxydump -l '0.0.0.0:8082' -dest "www.baidu.com:80" -auth "token_hello"
+``` 
+
+启动后，发送验证请求，之后才可以正常使用：
+```
+echo "token_hello"|nc 127.0.0.1 8082
+```

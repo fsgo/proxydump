@@ -7,8 +7,12 @@
 package proxy
 
 import (
+	"bufio"
+	"fmt"
 	"log"
 	"net"
+	"sync"
+	"time"
 )
 
 func Run(config *Config) error {
@@ -24,9 +28,10 @@ func Run(config *Config) error {
 
 	s := &Server{
 		DestAddr: config.DestAddr,
-		OnNewConn: func(conn net.Conn) net.Conn {
+		OnNewConn: func(conn net.Conn) (net.Conn, error) {
 			log.Println("conn", conn.RemoteAddr(), "open")
-			return conn
+			return conn, config.Allow(conn)
+
 		},
 		OnConnClose: func(conn net.Conn) {
 			log.Println("conn", conn.RemoteAddr(), "closed")
@@ -36,4 +41,57 @@ func Run(config *Config) error {
 		NewDecoderFunc:     config.NewDecoderFunc,
 	}
 	return s.Serve(l)
+}
+
+type authInfo struct {
+	Hosts map[string]time.Time
+	Token string
+	lock  sync.RWMutex
+}
+
+func (a *authInfo) ipAllow(ip string) bool {
+	a.lock.RLock()
+	a.lock.RUnlock()
+	_, has := a.Hosts[ip]
+	return has
+}
+
+func (a *authInfo) Allow(conn net.Conn) error {
+	if a.Token == "" {
+		return nil
+	}
+	host, _, err := net.SplitHostPort(conn.RemoteAddr().String())
+	if err != nil {
+		log.Printf("SplitHostPort faild %v\n", err)
+		return err
+	}
+
+	if a.ipAllow(host) {
+		return nil
+	}
+
+	rd := bufio.NewReader(conn)
+	line, _, _ := rd.ReadLine()
+	token := string(line)
+	if token == a.Token {
+		a.lock.Lock()
+		defer a.lock.Unlock()
+		a.Hosts[host] = time.Now()
+		log.Printf("auth success, %q\n", host)
+		_, _ = conn.Write([]byte("auth success"))
+		return nil
+	}
+	_, _ = conn.Write([]byte("forbidden"))
+	log.Printf("forbidden, %q not auth\n", host)
+	return fmt.Errorf("not auth")
+}
+
+func WithAuth(config *Config) {
+	au := &authInfo{
+		Token: config.AuthToken,
+		Hosts: map[string]time.Time{},
+	}
+	config.Allow = func(conn net.Conn) error {
+		return au.Allow(conn)
+	}
 }

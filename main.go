@@ -16,6 +16,7 @@ import (
 func main() {
 	config := proxy.NewConfigByFlag()
 	flag.Parse()
+	proxy.WithAuth(config)
 
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	log.SetPrefix("[proxydump] ")

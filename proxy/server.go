@@ -16,7 +16,7 @@ import (
 type Server struct {
 	DestAddr string
 
-	OnNewConn func(conn net.Conn) net.Conn
+	OnNewConn func(conn net.Conn) (net.Conn, error)
 
 	OnConnClose func(conn net.Conn)
 
@@ -39,8 +39,15 @@ func (s *Server) Serve(l net.Listener) error {
 }
 
 func (s *Server) handler(inConn net.Conn) {
+	var err error
 	if s.OnNewConn != nil {
-		inConn = s.OnNewConn(inConn)
+		inConn, err = s.OnNewConn(inConn)
+	}
+
+	defer inConn.Close()
+
+	if err != nil {
+		return
 	}
 
 	if s.OnConnClose != nil {
@@ -54,7 +61,6 @@ func (s *Server) handler(inConn net.Conn) {
 		decoder = s.NewDecoderFunc(inConn)
 	}
 
-	defer inConn.Close()
 	errc := make(chan error, 2)
 
 	copy := func(dst io.Writer, src io.Reader) {

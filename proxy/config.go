@@ -37,6 +37,11 @@ type Config struct {
 	DecoderPluginPath string
 
 	NewDecoderFunc NewDecoderFunc
+
+	AuthToken string
+
+	// 鉴权方法
+	Allow func(conn net.Conn) error
 }
 
 func (c *Config) Parser() error {
@@ -53,6 +58,11 @@ func (c *Config) Parser() error {
 
 	if err := c.loadDecoder(); err != nil {
 		return err
+	}
+	if c.Allow == nil {
+		c.Allow = func(conn net.Conn) error {
+			return nil
+		}
 	}
 
 	return nil
@@ -136,6 +146,7 @@ func NewConfigByFlag() *Config {
 	flag.StringVar(&config.RequestDumpPath, "req", "-", "dump request to")
 	flag.StringVar(&config.ResponseDumpPath, "resp", "-", "dump response to")
 	flag.StringVar(&config.DecoderPluginPath, "decoder", "~/proxydump/decoder.so", "decoder plugin so file path")
+	flag.StringVar(&config.AuthToken, "auth", "", "auth token, if not empty, server need auth")
 
 	flag.Usage = func() {
 		out := flag.CommandLine.Output()
