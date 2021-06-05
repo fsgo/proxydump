@@ -1,8 +1,6 @@
-/*
- * Copyright(C) 2020 github.com/hidu  All Rights Reserved.
- * Author: hidu (duv123+git@baidu.com)
- * Date: 2020/11/7
- */
+// Copyright(C) 2020 github.com/hidu  All Rights Reserved.
+// Author: hidu (duv123+git@baidu.com)
+// Date: 2020/11/7
 
 // go build -buildmode=plugin
 
