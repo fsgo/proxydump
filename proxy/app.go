@@ -35,7 +35,7 @@ func Run(config *Config) error {
 			log.Println("conn", conn.RemoteAddr(), "closed")
 		},
 		RequestDumpWriter:  config.RequestDumpWriter,
-		ResponseDumpWriter: config.ResponseDUmpWriter,
+		ResponseDumpWriter: config.ResponseDumpWriter,
 		NewDecoderFunc:     config.NewDecoderFunc,
 	}
 	return s.Serve(l)

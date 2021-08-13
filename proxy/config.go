@@ -29,7 +29,7 @@ type Config struct {
 	// 响应内容dump输出的文件地址
 	ResponseDumpPath string
 
-	ResponseDUmpWriter io.WriteCloser
+	ResponseDumpWriter io.WriteCloser
 
 	// 请求和响应解码 .so 的文件地址
 	DecoderPluginPath string
@@ -87,15 +87,15 @@ func (c *Config) loadDumpFiles() error {
 		if name == "" {
 			// pass  不输出
 		} else if name == c.RequestDumpPath {
-			c.ResponseDUmpWriter = c.RequestDumpWriter
+			c.ResponseDumpWriter = c.RequestDumpWriter
 		} else if name == "-" {
-			c.ResponseDUmpWriter = os.Stdout
+			c.ResponseDumpWriter = os.Stdout
 		} else {
 			f, err := os.OpenFile(name, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
 				return err
 			}
-			c.ResponseDUmpWriter = f
+			c.ResponseDumpWriter = f
 		}
 	}
 	return nil
