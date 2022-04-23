@@ -12,6 +12,8 @@ import (
 	"os"
 	"plugin"
 	"reflect"
+
+	"github.com/fsgo/fsgo/fsfs"
 )
 
 type Config struct {
@@ -30,6 +32,9 @@ type Config struct {
 	ResponseDumpPath string
 
 	ResponseDumpWriter io.WriteCloser
+
+	// 最多保留文件数
+	MaxFiles int
 
 	// 请求和响应解码 .so 的文件地址
 	DecoderPluginPath string
@@ -69,36 +74,52 @@ func (c *Config) Parser() error {
 func (c *Config) loadDumpFiles() error {
 	{
 		name := c.RequestDumpPath
-		if name == "" {
+		if name == "" || name == "no" {
 			// pass 不输出
-		} else if name == "-" {
+		} else if name == "stdout" {
 			c.RequestDumpWriter = os.Stdout
 		} else {
-			f, err := os.OpenFile(name, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			rf, err := c.openFile(name)
 			if err != nil {
 				return err
 			}
-			c.RequestDumpWriter = f
+			c.RequestDumpWriter = rf
 		}
 	}
 
 	{
 		name := c.ResponseDumpPath
-		if name == "" {
+		if name == "" || name == "no" {
 			// pass  不输出
 		} else if name == c.RequestDumpPath {
 			c.ResponseDumpWriter = c.RequestDumpWriter
-		} else if name == "-" {
+		} else if name == "stdout" {
 			c.ResponseDumpWriter = os.Stdout
 		} else {
-			f, err := os.OpenFile(name, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			rf, err := c.openFile(name)
 			if err != nil {
 				return err
 			}
-			c.ResponseDumpWriter = f
+			c.ResponseDumpWriter = rf
 		}
 	}
 	return nil
+}
+
+func (c *Config) openFile(name string) (io.WriteCloser, error) {
+	maxFiles := c.MaxFiles
+	if maxFiles <= 0 {
+		maxFiles = 12
+	}
+	rf := &fsfs.Rotator{
+		Path:     name,
+		ExtRule:  "1hour",
+		MaxFiles: maxFiles,
+	}
+	if err := rf.Init(); err != nil {
+		return nil, err
+	}
+	return rf, nil
 }
 
 // 从plugin 文件加载 decoder
@@ -141,10 +162,19 @@ func NewConfigByFlag() *Config {
 	var config = &Config{}
 	flag.StringVar(&config.ListenAddr, "l", "0.0.0.0:8128", "proxy listen addr")
 	flag.StringVar(&config.DestAddr, "dest", "", `remote dest server addr (eg "10.10.1.8:80")`)
-	flag.StringVar(&config.RequestDumpPath, "req", "-", "dump request to")
-	flag.StringVar(&config.ResponseDumpPath, "resp", "-", "dump response to")
+	flag.StringVar(&config.RequestDumpPath, "req", "stdout", `dump request to file
+stdout -> os.Stdout
+no     -> no output
+other case as filepath，eg request.txt、dump/request.txt
+`)
+	flag.StringVar(&config.ResponseDumpPath, "resp", "stdout", `dump response to file
+stdout -> os.Stdout
+no     -> no output
+other case as filepath，eg response.txt、dump/response.txt
+`)
 	flag.StringVar(&config.DecoderPluginPath, "decoder", "~/proxydump/decoder.so", "decoder plugin so file path")
 	flag.StringVar(&config.AuthToken, "auth", "", "auth token, if not empty, server need auth")
+	flag.IntVar(&config.MaxFiles, "max_files", 12, "max dump files to keep")
 
 	flag.Usage = func() {
 		out := flag.CommandLine.Output()
