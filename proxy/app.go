@@ -29,7 +29,6 @@ func Run(config *Config) error {
 		OnNewConn: func(conn net.Conn) (net.Conn, error) {
 			log.Println("conn", conn.RemoteAddr(), "open")
 			return conn, config.Allow(conn)
-
 		},
 		OnConnClose: func(conn net.Conn) {
 			log.Println("conn", conn.RemoteAddr(), "closed")
@@ -55,7 +54,7 @@ func (a *authInfo) ipAllow(ip string) bool {
 }
 
 func (a *authInfo) Allow(conn net.Conn) error {
-	if a.Token == "" {
+	if len(a.Token) == 0 {
 		return nil
 	}
 	host, _, err := net.SplitHostPort(conn.RemoteAddr().String())

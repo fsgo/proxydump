@@ -48,10 +48,10 @@ type Config struct {
 }
 
 func (c *Config) Parser() error {
-	if c.ListenAddr == "" {
+	if len(c.ListenAddr) == 0 {
 		return fmt.Errorf("listen addr is empty")
 	}
-	if c.DestAddr == "" {
+	if len(c.DestAddr) == 0 {
 		return fmt.Errorf("remote dest addr is empty")
 	}
 
@@ -74,7 +74,7 @@ func (c *Config) Parser() error {
 func (c *Config) loadDumpFiles() error {
 	{
 		name := c.RequestDumpPath
-		if name == "" || name == "no" {
+		if len(name) == 0 || name == "no" {
 			// pass 不输出
 		} else if name == "stdout" {
 			c.RequestDumpWriter = os.Stdout
@@ -89,7 +89,7 @@ func (c *Config) loadDumpFiles() error {
 
 	{
 		name := c.ResponseDumpPath
-		if name == "" || name == "no" {
+		if len(name) == 0 || name == "no" {
 			// pass  不输出
 		} else if name == c.RequestDumpPath {
 			c.ResponseDumpWriter = c.RequestDumpWriter
@@ -124,7 +124,7 @@ func (c *Config) openFile(name string) (io.WriteCloser, error) {
 
 // 从plugin 文件加载 decoder
 func (c *Config) loadDecoder() error {
-	if c.DecoderPluginPath == "" {
+	if len(c.DecoderPluginPath) == 0 {
 		return nil
 	}
 	_, err := os.Stat(c.DecoderPluginPath)
