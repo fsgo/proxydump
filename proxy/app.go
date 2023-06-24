@@ -6,7 +6,7 @@ package proxy
 
 import (
 	"bufio"
-	"fmt"
+	"errors"
 	"log"
 	"net"
 	"sync"
@@ -48,7 +48,7 @@ type authInfo struct {
 
 func (a *authInfo) ipAllow(ip string) bool {
 	a.lock.RLock()
-	a.lock.RUnlock()
+	defer a.lock.RUnlock()
 	_, has := a.Hosts[ip]
 	return has
 }
@@ -80,7 +80,7 @@ func (a *authInfo) Allow(conn net.Conn) error {
 	}
 	_, _ = conn.Write([]byte("forbidden"))
 	log.Printf("forbidden, %q not auth\n", host)
-	return fmt.Errorf("not auth")
+	return errors.New("not auth")
 }
 
 func WithAuth(config *Config) {

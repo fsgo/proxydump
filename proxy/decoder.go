@@ -15,10 +15,10 @@ type NewDecoderFunc func(conn net.Conn) Decoder
 
 // Decoder 数据解码器
 type Decoder interface {
-	// 解析请求数据
+	// Request 解析请求数据
 	Request(in io.Reader, out io.Writer)
 
-	// 解析response
+	// Response 解析response
 	Response(in io.Reader, out io.Writer)
 }
 

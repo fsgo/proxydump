@@ -9,7 +9,7 @@ Decoder 采用Go Plugin方案，[示例代码详见此](./examples/decoder/decod
 
 ## Install
 ```
-go get github.com/fsgo/proxydump
+go install github.com/fsgo/proxydump@master
 ```
 
 ## Usage

@@ -18,9 +18,9 @@ type Server struct {
 
 	OnConnClose func(conn net.Conn)
 
-	RequestDumpWriter io.WriteCloser
+	RequestDumpWriter io.Writer
 
-	ResponseDumpWriter io.WriteCloser
+	ResponseDumpWriter io.Writer
 
 	NewDecoderFunc NewDecoderFunc
 }
@@ -61,7 +61,7 @@ func (s *Server) handler(inConn net.Conn) {
 
 	errc := make(chan error, 2)
 
-	copy := func(dst io.Writer, src io.Reader) {
+	copyRD := func(dst io.Writer, src io.Reader) {
 		_, err := io.Copy(dst, src)
 		errc <- err
 	}
@@ -80,7 +80,7 @@ func (s *Server) handler(inConn net.Conn) {
 		defer w1.Close()
 		wOut = io.MultiWriter(outConn, w1)
 	}
-	go copy(wOut, inConn)
+	go copyRD(wOut, inConn)
 
 	var wIn io.Writer = inConn
 	if s.ResponseDumpWriter != nil {
@@ -88,6 +88,6 @@ func (s *Server) handler(inConn net.Conn) {
 		defer w2.Close()
 		wIn = io.MultiWriter(inConn, w2)
 	}
-	go copy(wIn, outConn)
+	go copyRD(wIn, outConn)
 	<-errc
 }

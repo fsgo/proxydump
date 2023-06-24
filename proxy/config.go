@@ -5,6 +5,7 @@
 package proxy
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -12,7 +13,10 @@ import (
 	"os"
 	"plugin"
 	"reflect"
+	"strings"
+	"sync/atomic"
 
+	"github.com/fatih/color"
 	"github.com/fsgo/fsgo/fsfs"
 )
 
@@ -26,12 +30,12 @@ type Config struct {
 	// 请求内容dump输出的文件地址
 	RequestDumpPath string
 
-	RequestDumpWriter io.WriteCloser
+	RequestDumpWriter io.Writer
 
 	// 响应内容dump输出的文件地址
 	ResponseDumpPath string
 
-	ResponseDumpWriter io.WriteCloser
+	ResponseDumpWriter io.Writer
 
 	// 最多保留文件数
 	MaxFiles int
@@ -45,14 +49,16 @@ type Config struct {
 
 	// 鉴权方法
 	Allow func(conn net.Conn) error
+
+	XBytes bool
 }
 
 func (c *Config) Parser() error {
 	if len(c.ListenAddr) == 0 {
-		return fmt.Errorf("listen addr is empty")
+		return errors.New("listen addr is empty")
 	}
 	if len(c.DestAddr) == 0 {
-		return fmt.Errorf("remote dest addr is empty")
+		return errors.New("remote dest addr is empty")
 	}
 
 	if err := c.loadDumpFiles(); err != nil {
@@ -77,7 +83,7 @@ func (c *Config) loadDumpFiles() error {
 		if len(name) == 0 || name == "no" {
 			// pass 不输出
 		} else if name == "stdout" {
-			c.RequestDumpWriter = os.Stdout
+			c.RequestDumpWriter = c.stdout(color.GreenString("Request"))
 		} else {
 			rf, err := c.openFile(name)
 			if err != nil {
@@ -94,7 +100,7 @@ func (c *Config) loadDumpFiles() error {
 		} else if name == c.RequestDumpPath {
 			c.ResponseDumpWriter = c.RequestDumpWriter
 		} else if name == "stdout" {
-			c.ResponseDumpWriter = os.Stdout
+			c.ResponseDumpWriter = c.stdout(color.YellowString("Response"))
 		} else {
 			rf, err := c.openFile(name)
 			if err != nil {
@@ -104,6 +110,33 @@ func (c *Config) loadDumpFiles() error {
 		}
 	}
 	return nil
+}
+
+func (c *Config) stdout(name string) io.Writer {
+	return &stdOut{
+		name: name,
+		x:    c.XBytes,
+	}
+}
+
+var _ io.Writer = (*stdOut)(nil)
+
+type stdOut struct {
+	index atomic.Int64
+	name  string
+	x     bool
+}
+
+var line = strings.Repeat("-", 80)
+
+func (s *stdOut) Write(p []byte) (n int, err error) {
+	if s.x {
+		vs := fmt.Sprint(p)
+		fmt.Fprintf(os.Stdout, "[%s][%d][Len=%d]\n%c\n%s\n%s\n\n", s.name, s.index.Add(1), len(p), p, line, vs)
+	} else {
+		fmt.Fprintf(os.Stdout, "[%s][%d][Len=%d]\n%c\n\n", s.name, s.index.Add(1), len(p), p)
+	}
+	return len(p), nil
 }
 
 func (c *Config) openFile(name string) (io.WriteCloser, error) {
@@ -148,7 +181,7 @@ func (c *Config) loadDecoder() error {
 
 	vv := rv.Call([]reflect.Value{reflect.ValueOf(connC)})
 	if len(vv) != 1 {
-		return fmt.Errorf("new decode with wrong result")
+		return errors.New("new decode with wrong result")
 	}
 	_, ok := vv[0].Interface().(Decoder)
 	if !ok {
@@ -175,13 +208,14 @@ other case as filepath，eg response.txt、dump/response.txt
 	flag.StringVar(&config.DecoderPluginPath, "decoder", "~/proxydump/decoder.so", "decoder plugin so file path")
 	flag.StringVar(&config.AuthToken, "auth", "", "auth token, if not empty, server need auth")
 	flag.IntVar(&config.MaxFiles, "max_files", 12, "max dump files to keep")
+	flag.BoolVar(&config.XBytes, "x", false, "stdout bytes")
 
 	flag.Usage = func() {
 		out := flag.CommandLine.Output()
 		cmd := os.Args[0]
 		fmt.Fprintf(out, "usage: %s [flags] [path ...]\n", cmd)
 		flag.PrintDefaults()
-		fmt.Fprintf(out, "https://github.com/fsgo/proxydump\n")
+		fmt.Fprint(out, "https://github.com/fsgo/proxydump\n")
 		fmt.Fprintf(out, "version: %s\n", Version)
 	}
 	return config
