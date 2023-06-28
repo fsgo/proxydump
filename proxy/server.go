@@ -74,17 +74,21 @@ func (s *Server) handler(inConn net.Conn) {
 
 	defer outConn.Close()
 
+	reqWriter := cloneWriter(s.RequestDumpWriter, inConn.RemoteAddr().String())
+
 	var wOut io.Writer = outConn
-	if s.RequestDumpWriter != nil {
-		w1 := NewDecoderWriter(s.RequestDumpWriter, decoder.Request)
+	if reqWriter != nil {
+		w1 := NewDecoderWriter(reqWriter, decoder.Request)
 		defer w1.Close()
 		wOut = io.MultiWriter(outConn, w1)
 	}
 	go copyRD(wOut, inConn)
 
+	resWriter := cloneWriter(s.ResponseDumpWriter, inConn.RemoteAddr().String())
+
 	var wIn io.Writer = inConn
-	if s.ResponseDumpWriter != nil {
-		w2 := NewDecoderWriter(s.ResponseDumpWriter, decoder.Response)
+	if resWriter != nil {
+		w2 := NewDecoderWriter(resWriter, decoder.Response)
 		defer w2.Close()
 		wIn = io.MultiWriter(inConn, w2)
 	}
