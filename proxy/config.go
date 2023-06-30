@@ -13,8 +13,6 @@ import (
 	"os"
 	"plugin"
 	"reflect"
-	"strings"
-	"sync/atomic"
 
 	"github.com/fatih/color"
 	"github.com/fsgo/fsgo/fsfs"
@@ -98,7 +96,7 @@ func (c *Config) loadDumpFiles() error {
 		if len(name) == 0 || name == "no" {
 			// pass  不输出
 		} else if name == "stdout" {
-			c.ResponseDumpWriter = c.stdout(color.YellowString("Response"))
+			c.ResponseDumpWriter = c.stdout(color.RedString("Response"))
 		} else if name == c.RequestDumpPath {
 			c.ResponseDumpWriter = c.RequestDumpWriter
 		} else {
@@ -117,44 +115,6 @@ func (c *Config) stdout(name string) io.Writer {
 		typeName: name,
 		x:        c.XBytes,
 	}
-}
-
-var _ io.Writer = (*stdOut)(nil)
-
-type stdOut struct {
-	index    atomic.Int64
-	typeName string
-	prefix   string
-	x        bool
-}
-
-var line = strings.Repeat("-", 80)
-
-func (s *stdOut) Write(p []byte) (n int, err error) {
-	if s.x {
-		vs := fmt.Sprint(p)
-		fmt.Fprintf(os.Stdout, "%s[Len=%d]\n%c\n%s\n%s\n\n", s.writePrefix(), len(p), p, line, vs)
-	} else {
-		fmt.Fprintf(os.Stdout, "%s[Len=%d]\n%c\n\n", s.writePrefix(), len(p), p)
-	}
-	return len(p), nil
-}
-
-func (s *stdOut) writePrefix() string {
-	id := color.RedString("%d", s.index.Add(1))
-	return fmt.Sprintf("[%s][%s][%s]", s.typeName, id, s.prefix)
-}
-
-func (s *stdOut) WriterClone(prefix string) io.Writer {
-	return &stdOut{
-		typeName: s.typeName,
-		prefix:   prefix,
-		x:        s.x,
-	}
-}
-
-type hasWriterClone interface {
-	WriterClone(prefix string) io.Writer
 }
 
 func (c *Config) openFile(name string) (io.WriteCloser, error) {
