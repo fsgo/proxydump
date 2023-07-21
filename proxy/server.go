@@ -80,7 +80,7 @@ func (s *Server) handler(inConn net.Conn) {
 	if reqWriter != nil {
 		w1 := NewDecoderWriter(reqWriter, decoder.Request)
 		defer w1.Close()
-		wOut = io.MultiWriter(outConn, w1)
+		wOut = io.MultiWriter(w1, outConn)
 	}
 	go copyRD(wOut, inConn)
 
@@ -90,7 +90,7 @@ func (s *Server) handler(inConn net.Conn) {
 	if resWriter != nil {
 		w2 := NewDecoderWriter(resWriter, decoder.Response)
 		defer w2.Close()
-		wIn = io.MultiWriter(inConn, w2)
+		wIn = io.MultiWriter(w2, inConn)
 	}
 	go copyRD(wIn, outConn)
 	<-errc

@@ -55,7 +55,7 @@ func (s *stdOut) Write(p []byte) (n int, err error) {
 			startIndex += end
 		}
 	} else {
-		fmt.Fprintf(os.Stdout, "%s[Len=%d]\n%c\n\n", s.writePrefix(), len(p), p)
+		fmt.Fprintf(os.Stdout, "%s[Len=%d]\n%s\n\n", s.writePrefix(), len(p), p)
 	}
 	return len(p), nil
 }
